@@ -36,9 +36,19 @@ public class FacultyDashboard extends JFrame {
         );
 
         logoutBtn.addActionListener(e -> {
-            dispose();        // Close Faculty Dashboard
-            new Login();      // Go back to Home Login page
-        });
+    int confirm = JOptionPane.showConfirmDialog(
+            this,
+            "Are you sure you want to logout?",
+            "Confirm Logout",
+            JOptionPane.YES_NO_OPTION,
+            JOptionPane.QUESTION_MESSAGE
+    );
+
+    if (confirm == JOptionPane.YES_OPTION) {
+        dispose();
+        new Login();
+    }
+});
 
         setVisible(true);
     }

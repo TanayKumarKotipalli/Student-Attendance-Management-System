@@ -6,6 +6,9 @@ public class MarkAttendance extends JFrame {
     JTextField rollField;
     JLabel nameLabel;
     JComboBox<String> statusBox;
+    JButton markBtn;
+
+    int foundUserId = -1;
 
     public MarkAttendance() {
 
@@ -34,8 +37,9 @@ public class MarkAttendance extends JFrame {
         statusBox.setBounds(150, 150, 120, 25);
         add(statusBox);
 
-        JButton markBtn = new JButton("Mark Attendance");
+        markBtn = new JButton("Mark Attendance");
         markBtn.setBounds(120, 200, 150, 30);
+        markBtn.setEnabled(false); // disabled initially
         add(markBtn);
 
         searchBtn.addActionListener(e -> searchStudent());
@@ -44,9 +48,14 @@ public class MarkAttendance extends JFrame {
         setVisible(true);
     }
 
-    int foundUserId = -1;
-
     void searchStudent() {
+
+        // ✅ Validate FIRST
+        if (rollField.getText().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Enter Roll Number!");
+            return;
+        }
+
         try (Connection con = DBConnection.getConnection()) {
 
             String sql = "SELECT id, full_name FROM students WHERE roll_no = ?";
@@ -58,24 +67,47 @@ public class MarkAttendance extends JFrame {
             if (rs.next()) {
                 foundUserId = rs.getInt("id");
                 nameLabel.setText("Student: " + rs.getString("full_name"));
+                markBtn.setEnabled(true); // enable button
             } else {
                 foundUserId = -1;
                 nameLabel.setText("Student not found");
+                markBtn.setEnabled(false); // disable button
             }
 
         } catch (Exception e) {
             e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Database Error: Unable To Fetch The Student!");
         }
     }
 
     void markAttendance() {
+
         if (foundUserId == -1) {
             JOptionPane.showMessageDialog(this, "Search student first!");
             return;
         }
 
+        // ✅ Validate status BEFORE insert
+        if (statusBox.getSelectedItem() == null) {
+            JOptionPane.showMessageDialog(this, "Select status!");
+            return;
+        }
+
         try (Connection con = DBConnection.getConnection()) {
 
+            // 🔥 Check duplicate
+            String checkSql = "SELECT * FROM attendance WHERE user_id = ? AND date = CURDATE()";
+            PreparedStatement checkPs = con.prepareStatement(checkSql);
+            checkPs.setInt(1, foundUserId);
+
+            ResultSet rs = checkPs.executeQuery();
+
+            if (rs.next()) {
+                JOptionPane.showMessageDialog(this, "Attendance already marked for today!");
+                return;
+            }
+
+            // 🔥 Insert
             String sql = "INSERT INTO attendance(user_id, date, status) VALUES (?, CURDATE(), ?)";
             PreparedStatement ps = con.prepareStatement(sql);
 
@@ -86,9 +118,15 @@ public class MarkAttendance extends JFrame {
 
             JOptionPane.showMessageDialog(this, "Attendance Marked Successfully");
 
+            // ✅ RESET FORM
+            rollField.setText("");
+            nameLabel.setText("Student: ");
+            foundUserId = -1;
+            markBtn.setEnabled(false);
+
         } catch (Exception e) {
             e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Failed to mark attendance");
+            JOptionPane.showMessageDialog(this, "Database Error: Please Try Again Later!");
         }
     }
 }
